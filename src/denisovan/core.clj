@@ -3,7 +3,7 @@
 
    Should not be used directly by user code. Users should instead create and manipulate Neanderthal
    vectors and matrices using the core.matrix API"
-  (:require [uncomplicate.neanderthal.core :as core] 
+  (:require [uncomplicate.neanderthal.core :as core]
             [clojure.core.matrix :refer :all]
             [clojure.core.matrix.protocols :as mp]
             [uncomplicate.neanderthal.internal.host.mkl :as mkl]
@@ -34,7 +34,7 @@
   ([a]
     `(or (instance? Vector ~a) (instance? Matrix ~a))))
 
-(defmacro double-coerce 
+(defmacro double-coerce
   "Coerces a 0-dimensional object to a double value"
   ([x]
   `(let [x# ~x]
@@ -44,7 +44,7 @@
   (let [tagged-sym (vary-meta (gensym "res") assoc :tag tag)]
     `(let [~tagged-sym ~form] ~tagged-sym)))
 
-(defn vector-coerce* 
+(defn vector-coerce*
   "Coerces any numerical array to an Vector instance.
    May broadcast to the shape of an optional target if necessary.
    Does *not* guarantee a new copy - may return same data." 
@@ -364,10 +364,120 @@
         '[Vector Matrix])))
 
 
-(extend-protocol mp/PAddScaledMutable
-  Vector
-  (add-scaled [m a factor]
-    (core/axpy factor a m)))
+(eval
+ `(extend-protocol mp/PMatrixAdd
+    ~@(mapcat
+        (fn [sym]
+          (cons
+           sym
+           '((matrix-add [m a]
+                         (let [[m a] (mp/broadcast-compatible m a)]
+                           (core/xpy (matrix a) m)))
+             (matrix-sub [m a]
+                         (let [[m a] (mp/broadcast-compatible m a)]
+                           (core/axpy -1.0 (matrix a) m))))))
+        '[Vector Matrix])))
+
+
+
+(eval
+ `(extend-protocol mp/PMatrixAddMutable
+    ~@(mapcat
+        (fn [sym]
+          (cons
+           sym
+           ;; TODO inplace xpy! ?
+           '((matrix-add! [m a]
+                          (let [[m a] (mp/broadcast-compatible m a)]
+                            (core/axpy! 1.0 (matrix a) m)))
+             (matrix-sub! [m a]
+                          (let [[m a] (mp/broadcast-compatible m a)]
+                            (core/axpy! -1.0 (matrix a) m))))))
+        '[Vector Matrix])))
+
+
+(eval
+ `(extend-protocol mp/PMatrixScaling
+    ~@(mapcat
+        (fn [sym]
+          (cons
+           sym
+           '((scale [m a] (core/scal a m))
+             (pre-scale [m a] (core/scal a m)))))
+        '[Vector Matrix])))
+
+
+(eval
+ `(extend-protocol mp/PMatrixMutableScaling
+    ~@(mapcat
+        (fn [sym]
+          (cons
+           sym
+           '((scale! [m a] (core/scal! a m))
+             (pre-scale! [m a] (core/scal! a m)))))
+        '[Vector Matrix])))
+
+
+;; TODO 
+(defn foo [m1 a m2 b constant]
+  (let [b (double b)
+        constant (double constant)
+        m2* (if (== 1.0 b)
+              m2
+              (core/scal! b m2))
+        m2* (core/axpy! a m1 m2*)]
+    (if (== constant 0.0)
+      m2*
+      (vm/linear-frac! m2* constant))))
+
+
+;; TODO ?
+#_(eval
+ `(extend-protocol mp/PScaleAdd
+    ~@(mapcat
+        (fn [sym]
+          (cons
+           sym
+           '((scale-add! [m1 a m2 b constant]
+                         (foo m1 a m2 b constant)
+                         #_(let [b (double b)
+                               constant (double constant)
+                               m2* (if (== 1.0 b)
+                                     m2
+                                     (core/scal! b m2))
+                               m2* (core/axpy! a m1 m2*)]
+                           (if (== constant 0.0)
+                             m2*
+                             (vm/linear-frac! m2* constant)))))))
+        '[Vector Matrix])))
+
+(eval
+ `(extend-protocol mp/PScaleAdd2
+    ~@(mapcat
+        (fn [sym]
+          (cons
+           sym
+           '((scale-add [m1 a m2 b constant]
+                        (let [b (double b)
+                              constant (double constant)
+                              m2* (if (== 1.0 b)
+                                     m2
+                                     (core/scal b m2))
+                               m2* (core/axpy a m1 m2*)]
+                           (if (== constant 0.0)
+                             m2*
+                             (vm/linear-frac m2* constant)))))))
+        '[Vector Matrix])))
+
+#_(let [m1 (matrix [1 2])
+      m2 (matrix [3 4])
+      a 1
+      b 1
+      constant 0.0]
+  #_(core/axpy! a m1 m2)
+  #_(vm/linear-frac a m1 constant b m2 1.0)
+  (scale-add! m1 a m2 b constant))
+
 
 
 (defn svd-inv [m]
