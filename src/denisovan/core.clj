@@ -303,14 +303,37 @@
         (fn [sym]
           (cons
            sym
-           '((element-divide [m] (vm/inv m))
-             (element-divide [m a]
-                             (if (number? a)
-                               (let [a (double a)]
-                                 (core/scal (/ 1.0 a) m))
-                               (let [[m a] (mp/broadcast-compatible m a)]
-                                 (vm/div m a)))))))
+           '((element-divide
+              ([m] (vm/inv m))
+              ([m a]
+               (if (number? a)
+                 (let [a (double a)]
+                   (core/scal (/ 1.0 a) m))
+                 (let [[m a] (mp/broadcast-compatible m a)]
+                   (vm/div m a))))))))
         '[Vector Matrix])))
+
+(eval
+ `(extend-protocol mp/PMatrixDivideMutable
+    ~@(mapcat
+        (fn [sym]
+          (cons
+           sym
+           '((element-divide!
+              ([m] (vm/inv! m))
+              ([m a]
+               (if (number? a)
+                 (let [a (double a)]
+                   (core/scal! (/ 1.0 a) m))
+                 (let [[m a] (mp/broadcast-compatible m a)]
+                   (vm/div! m a))))))))
+        '[Vector Matrix])))
+
+
+
+;; TODO needs core.matrix test
+(comment
+  (vm/inv (matrix [1 2 3])))
 
 ;; optional, for performance
 
@@ -371,12 +394,22 @@
           (cons
            sym
            '((matrix-add [m a]
-                         (let [[m a] (mp/broadcast-compatible m a)]
-                           (core/xpy (matrix a) m)))
+                         (if (number? a)
+                           (vm/linear-frac m a)
+                           (let [[m a] (mp/broadcast-compatible m a)]
+                             (core/xpy (matrix a) m))))
              (matrix-sub [m a]
-                         (let [[m a] (mp/broadcast-compatible m a)]
-                           (core/axpy -1.0 (matrix a) m))))))
+                         (if (number? a)
+                           (vm/linear-frac m (- a))
+                           (let [[m a] (mp/broadcast-compatible m a)]
+                             (core/axpy -1.0 (matrix a) m)))))))
         '[Vector Matrix])))
+
+
+;; missing core-matrix test
+(comment
+  (sub 1.0 (matrix [1 2 3])))
+
 
 
 
@@ -388,11 +421,15 @@
            sym
            ;; TODO inplace xpy! ?
            '((matrix-add! [m a]
-                          (let [[m a] (mp/broadcast-compatible m a)]
-                            (core/axpy! 1.0 (matrix a) m)))
+                          (if (number? a)
+                            (vm/linear-frac! m a)
+                            (let [[m a] (mp/broadcast-compatible m a)]
+                              (core/axpy! 1.0 (matrix a) m))))
              (matrix-sub! [m a]
-                          (let [[m a] (mp/broadcast-compatible m a)]
-                            (core/axpy! -1.0 (matrix a) m))))))
+                          (if (number? a)
+                            (vm/linear-frac! m a)
+                            (let [[m a] (mp/broadcast-compatible m a)]
+                              (core/axpy! -1.0 (matrix a) m)))))))
         '[Vector Matrix])))
 
 
