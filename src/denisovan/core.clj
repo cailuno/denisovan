@@ -12,6 +12,7 @@
             [uncomplicate.neanderthal.linalg :as lin]
             [uncomplicate.neanderthal.vect-math :as vm]
             [uncomplicate.neanderthal.math :as math]
+            [uncomplicate.neanderthal.native :as nat]
             [uncomplicate.neanderthal.internal
              [api :as p]]
             [uncomplicate.neanderthal.vect-math :as vm])
@@ -19,9 +20,10 @@
             Changeable RealChangeable]))
 
 
-
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
+
+
 
 (defmacro error
   "Throws an error with the provided message(s). This is a macro in order to try and ensure the 
@@ -40,9 +42,11 @@
   `(let [x# ~x]
      (double (if (number? x#) x# (mp/get-0d x#))))))
 
+
 (defmacro tag-symbol [tag form]
   (let [tagged-sym (vary-meta (gensym "res") assoc :tag tag)]
     `(let [~tagged-sym ~form] ~tagged-sym)))
+
 
 (defn vector-coerce*
   "Coerces any numerical array to an Vector instance.
@@ -372,8 +376,7 @@
         (fn [sym]
           (cons
            sym
-           '((add-scaled [m a factor]
-               (core/axpy factor a m)))))
+           '((add-scaled [m a factor] (core/axpy factor a m)))))
         '[Vector Matrix])))
 
 (eval
@@ -382,8 +385,7 @@
         (fn [sym]
           (cons
            sym
-           '((add-scaled! [m a factor]
-                         (core/axpy! factor a m)))))
+           '((add-scaled! [m a factor] (core/axpy! factor a m)))))
         '[Vector Matrix])))
 
 
@@ -455,19 +457,6 @@
         '[Vector Matrix])))
 
 
-;; TODO 
-(defn foo [m1 a m2 b constant]
-  (let [b (double b)
-        constant (double constant)
-        m2* (if (== 1.0 b)
-              m2
-              (core/scal! b m2))
-        m2* (core/axpy! a m1 m2*)]
-    (if (== constant 0.0)
-      m2*
-      (vm/linear-frac! m2* constant))))
-
-
 ;; TODO ?
 #_(eval
  `(extend-protocol mp/PScaleAdd
@@ -506,16 +495,6 @@
                              (vm/linear-frac m2* constant)))))))
         '[Vector Matrix])))
 
-#_(let [m1 (matrix [1 2])
-      m2 (matrix [3 4])
-      a 1
-      b 1
-      constant 0.0]
-  #_(core/axpy! a m1 m2)
-  #_(vm/linear-frac a m1 constant b m2 1.0)
-  (scale-add! m1 a m2 b constant))
-
-
 
 (defn svd-inv [m]
   (let [{:keys [u vt sigma] :as svd} (lin/svd m true true)
@@ -530,6 +509,133 @@
   (trace [m] (core/sum (core/dia m)))
   (det [m] (lin/det m))
   (inverse [m] (svd-inv m)))
+
+;; ==========================================================
+;; LINEAR ALGEBRA PROTOCOLS
+
+(eval
+ `(extend-protocol mp/PNorm
+    ~@(mapcat
+        (fn [sym]
+          (cons
+           sym
+           '((norm [m p]
+                   (if (== p 2)
+                     (core/nrm2 m)
+                     (if (== p 1)
+                       (core/nrm1 m)
+                       (if (== p Double/POSITIVE_INFINITY)
+                         (core/nrmi m)
+                         (Math/pow (core/sum (vm/pow m p)) (/ 1 p)))))))))
+        '[Vector Matrix])))
+
+(extend-protocol mp/PCholeskyDecomposition
+  Matrix
+  (cholesky [m options]
+    (let [lu (:lu (lin/trf m))]
+      (if (= (type lu) uncomplicate.neanderthal.internal.host.buffer_block.RealUploMatrix)
+        lu
+        (throw (ex-info "Matrix does not seem to be positive definite." {:m m}))))))
+
+
+
+
+
+(comment
+  (type (:lu (lin/trf (nat/dsy 3 [1
+                                  1 0
+                                  1 2 3]
+                               {:layout :row :uplo :lower}))))
+
+  (mp/cholesky (matrix [[1 2] [3 4]]) #_(nat/dsy 3 [1
+                                                  1 0
+                                                  1 2 3]
+                                               {:layout :row :uplo :lower}) nil))
+
+(extend-protocol mp/PQRDecomposition
+  Matrix
+  (qr [m options]
+    (let [qr (lin/qrf m)
+          q (lin/org qr)
+          r (core/view-tr (:or qr) {:uplo :upper})]
+      {:Q q :R r})))
+
+
+(extend-protocol mp/PLUDecomposition
+  Matrix
+  (mp/lu [m options]
+    (let [lu (lin/trf m)]
+      {:L (core/view-tr (:lu lu) {:uplo :lower :diag :unit})
+       :U (core/view-tr (:lu lu) {:uplo :upper})
+       :P (:ipiv lu)})))
+
+
+(extend-protocol mp/PSVDDecomposition
+  Matrix
+  (mp/svd [m options]
+    (let [{:keys [u vt sigma] :as svd} (lin/svd m true true)]
+      {:U u :S sigma :V* vt})))
+
+(comment
+  (mp/qr (matrix [[1 2] [3 4]]) nil)
+
+  (mp/svd (matrix [[1 2] [3 4]]) nil)
+
+  (:P (mp/lu (matrix [[1 2] [3 4]]) nil)) 
+
+
+  (mp/lu (transpose (matrix [[1 0 1] [1 -1 1] [3 1 4]])) nil)
+
+  (core/axpy! 1 (:or (lin/qrf foo))
+              (matrix [[0 0] [0 0]]))
+
+  (core/mm (lin/org qr)
+           (core/view-tr (:or qr) {:uplo :upper}))
+
+  (def foo (matrix [[1 0] [1 2] [0 0]]))
+  (def id (identity-matrix 2))
+  (def qr (lin/qrf foo))
+  (core/view-tr (:or qr) {:uplo :upper})
+  (core/mm (:or qr)
+           (matrix [[1 0] [0 1]])
+           )
+
+  (core/mm! 1
+            (:or (lin/qrf (matrix [[1 2] [3 4]])))
+            (mp/identity-matrix (matrix [[1 2] [3 4]]) 2))
+
+  (set-current-implementation :neanderthal)
+  (set-current-implementation :persistent-vector)
+
+  ()
+
+  (set-current-implementation :vectorz)
+  )
+
+
+
+;; TODO
+(comment
+(defprotocol PEigenDecomposition
+  "Procotol for Eigenvalue decomposition"
+  (eigen [m options]))
+
+(defprotocol PSolveLinear
+  "Protocol for solving linear matrix equation or system of linear scalar equations"
+  (solve [a b]))
+
+(defprotocol PLeastSquares
+  "Protocol for computing least-square solution to a linear matrix equation"
+  (least-squares [a b]))
+)
+
+
+
+
+
+
+
+
 
 
 (eval
