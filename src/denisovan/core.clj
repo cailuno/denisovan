@@ -579,6 +579,37 @@
     (let [{:keys [u vt sigma] :as svd} (lin/svd m true true)]
       {:U u :S sigma :V* vt})))
 
+
+(extend-protocol mp/PEigenDecomposition
+  Matrix
+  (mp/eigen [m options]
+    (let [evs (core/copy m)
+          eigenvalues (lin/ev! m nil evs)]
+      {:Q evs
+       :rA (first (core/cols eigenvalues))
+       :rI (second (core/cols eigenvalues))})))
+
+(extend-protocol mp/PSolveLinear
+  Matrix
+  (mp/solve [a b]
+    (let [b (core/view-ge b)]
+      (lin/sv a b))))
+
+(comment
+  (mp/solve (matrix [[1 0] [0 1]]) (matrix [2 3]))
+  )
+
+(extend-protocol mp/PLeastSquares
+  Matrix
+  (mp/least-squares [a b]
+    (let [b (core/view-ge b)]
+      (lin/ls a b))))
+
+(comment
+  (mp/least-squares (matrix [[1 0] [0 1]]) (matrix [2 3]))
+  )
+
+
 (comment
   (mp/qr (matrix [[1 2 3] [4 5 6]]) nil)
 
@@ -612,27 +643,13 @@
   (set-current-implementation :neanderthal)
   (set-current-implementation :persistent-vector)
 
-  ()
 
   (set-current-implementation :vectorz)
   )
 
 
 
-;; TODO
-(comment
-(defprotocol PEigenDecomposition
-  "Procotol for Eigenvalue decomposition"
-  (eigen [m options]))
 
-(defprotocol PSolveLinear
-  "Protocol for solving linear matrix equation or system of linear scalar equations"
-  (solve [a b]))
-
-(defprotocol PLeastSquares
-  "Protocol for computing least-square solution to a linear matrix equation"
-  (least-squares [a b]))
-)
 
 
 
