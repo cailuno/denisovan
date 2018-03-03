@@ -292,14 +292,11 @@
       (let [l (core/nrm2 a)]
         (div a l))))
 
-;; fixes test
 (extend-protocol mp/PSquare
   Vector
   (square [m] (vm/sqr m))
   Matrix
   (square [m] (vm/sqr m)))
-
-;; fixes test
 
 (eval
  `(extend-protocol mp/PMatrixDivide
@@ -335,10 +332,6 @@
 
 
 
-;; TODO needs core.matrix test
-(comment
-  (vm/inv (matrix [1 2 3])))
-
 ;; optional, for performance
 
 ;; make it fast
@@ -367,7 +360,7 @@
   (outer-product [m a]
     (when (vec? a)
       (core/rk m a))
-    ;; else fall-back
+    ;; else fall-back?
     ))
 
 (eval
@@ -408,12 +401,6 @@
         '[Vector Matrix])))
 
 
-;; missing core-matrix test
-(comment
-  (sub 1.0 (matrix [1 2 3])))
-
-
-
 
 (eval
  `(extend-protocol mp/PMatrixAddMutable
@@ -421,7 +408,6 @@
         (fn [sym]
           (cons
            sym
-           ;; TODO inplace xpy! ?
            '((matrix-add! [m a]
                           (if (number? a)
                             (vm/linear-frac! m a)
@@ -457,25 +443,24 @@
         '[Vector Matrix])))
 
 
-;; TODO ?
-#_(eval
- `(extend-protocol mp/PScaleAdd
+(eval
+ `(extend-protocol mp/PScaleAdd 
     ~@(mapcat
         (fn [sym]
           (cons
            sym
            '((scale-add! [m1 a m2 b constant]
-                         (foo m1 a m2 b constant)
-                         #_(let [b (double b)
-                               constant (double constant)
-                               m2* (if (== 1.0 b)
-                                     m2
-                                     (core/scal! b m2))
-                               m2* (core/axpy! a m1 m2*)]
-                           (if (== constant 0.0)
-                             m2*
-                             (vm/linear-frac! m2* constant)))))))
+                         (let [a (double a)
+                               b (double b)
+                               constant (double constant)]
+                           (when-not (== 1.0 a)
+                             (core/scal! a m1))
+                           (core/axpy! b m2 m1)
+                           (when-not (== constant 0.0)
+                             (vm/linear-frac! m1 constant))
+                           m1)))))
         '[Vector Matrix])))
+
 
 (eval
  `(extend-protocol mp/PScaleAdd2
@@ -489,7 +474,7 @@
                               m2* (if (== 1.0 b)
                                      m2
                                      (core/scal b m2))
-                               m2* (core/axpy a m1 m2*)]
+                              m2* (core/axpy a m1 m2*)]
                            (if (== constant 0.0)
                              m2*
                              (vm/linear-frac m2* constant)))))))
@@ -500,7 +485,8 @@
   (let [{:keys [u vt sigma] :as svd} (lin/svd m true true)
         diag-inverse (core/gd mkl/mkl-double (core/mrows sigma)
                               ;; TODO seq somehow  needed?
-                              (seq (fluo/fmap (fn ^double [^double x] (/ 1 x)) sigma)))]
+                              (fluo/fmap (fn ^double [^double x] (/ 1 x)) sigma)
+                              )]
     (core/mm (core/trans vt) diag-inverse (core/trans u))))
 
 
@@ -539,20 +525,6 @@
         (throw (ex-info "Matrix does not seem to be positive definite." {:m m}))))))
 
 
-
-
-
-(comment
-  (type (:lu (lin/trf (nat/dsy 3 [1
-                                  1 0
-                                  1 2 3]
-                               {:layout :row :uplo :lower}))))
-
-  (mp/cholesky (matrix [[1 2] [2 1]]) #_(nat/dsy 3 [1
-                                                  1 0
-                                                  1 2 3]
-                                               {:layout :row :uplo :lower}) nil))
-
 (extend-protocol mp/PQRDecomposition
   Matrix
   (qr [m options]
@@ -567,9 +539,6 @@
               q (lin/org qr)
               r (core/view-tr (:or qr) {:uplo :upper})]
           {:Q (if (< b a) (reshape q [a a]) q) :R r})))))
-
-(comment
-  (mp/qr (transpose(matrix [[1 2 3] [3 4 5]])) nil))
 
 
 (extend-protocol mp/PLUDecomposition
@@ -603,9 +572,6 @@
     (let [b (core/view-ge b)]
       (lin/sv a b))))
 
-(comment
-  (mp/solve (matrix [[1 0] [0 1]]) (matrix [2 3]))
-  )
 
 (extend-protocol mp/PLeastSquares
   Matrix
@@ -613,26 +579,14 @@
     (let [b (core/view-ge b)]
       (lin/ls a b))))
 
-(comment
-  (mp/least-squares (matrix [[1 0] [0 1]]) (matrix [2 3]))
-  )
+
 
 
 (comment
   (mp/qr (matrix [[1 2 3] [4 5 6]]) nil)
 
-  (mp/svd (matrix [[1 2] [3 4]]) nil)
-
   (:P (mp/lu (matrix [[1 2] [3 4]]) nil))
 
-
-  (mp/lu (transpose (matrix [[1 0 1] [1 -1 1] [3 1 4]])) nil)
-
-  (core/axpy! 1 (:or (lin/qrf foo))
-              (matrix [[0 0] [0 0]]))
-
-  (core/mm (lin/org qr)
-           (core/view-tr (:or qr) {:uplo :upper}))
 
   (def foo (matrix [[1 0 1] [2 0 0]]))
   (def bar (nat/dge 2 3 [1 0 1
@@ -640,13 +594,6 @@
   (def qr (lin/qrf bar))
   (lin/org qr)
   (core/view-tr (:or qr) {:uplo :upper})
-  (core/mm (:or qr)
-           (matrix [[1 0] [0 1]])
-           )
-
-  (core/mm! 1
-            (:or (lin/qrf (matrix [[1 2] [3 4]])))
-            (mp/identity-matrix (matrix [[1 2] [3 4]]) 2))
 
   (set-current-implementation :neanderthal)
   (set-current-implementation :persistent-vector)
@@ -656,17 +603,7 @@
   )
 
 
-
-
-
-
-
-
-
-
-
-
-
+;; point-wise activations
 
 (eval
  `(extend-protocol mp/PExponent
@@ -746,6 +683,7 @@
         '[Vector Matrix])))
 
 
+
 ;; Register the Neanderthal implementation using MKL
 (imp/register-implementation (p/create-vector mkl/mkl-double 3 true))
 
@@ -819,20 +757,3 @@
   (exp (matrix [1 2 3])))
 
 
-
-
-
-;; GP experiment
-
-;; Rasmussen Algorithm 2.1
-
-(comment
-  (diagonal-matrix [1 2 3])
-
-  (lin/sv)
-
-  (require '[plotly-clj.core :as plt])
-
-  (plt/offline-init)
-
-  (plt/save-html (plt/plotly (range 10) (map square (range 10))) "/tmp/plot.html" true))

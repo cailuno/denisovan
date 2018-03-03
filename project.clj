@@ -6,8 +6,7 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [uncomplicate/neanderthal "0.18.0"]
                  [net.mikera/core.matrix "0.62.0"]
-                 [uncomplicate/fluokitten "0.6.1"]
-                 #_[plotly-clj "0.1.1"]]
+                 [uncomplicate/fluokitten "0.6.1"]]
 
   :profiles {:dev {:global-vars {*warn-on-reflection* true
                                  *assert* false
