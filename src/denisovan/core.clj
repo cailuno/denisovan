@@ -555,13 +555,20 @@
 (extend-protocol mp/PQRDecomposition
   Matrix
   (qr [m options]
-    (let [_ (prn "M" m)
-          qr (lin/qrf m)
-          _ (prn "QR" qr)
-          q (lin/org qr)
-          _ (prn "Q" q)
-          r (core/view-tr (:or qr) {:uplo :upper})]
-      {:Q q :R r})))
+    (let [[^int a ^int b] (shape m)]
+      (if (> b a)
+        (binding [clojure.core.matrix.implementations/*matrix-implementation* :vectorz]
+          (let [{:keys [Q R]} (mp/qr (matrix m) options)]
+            (binding [clojure.core.matrix.implementations/*matrix-implementation* :neanderthal]
+              {:Q (matrix Q)
+               :R (matrix R)})))
+        (let [qr (lin/qrf m)
+              q (lin/org qr)
+              r (core/view-tr (:or qr) {:uplo :upper})]
+          {:Q (if (< b a) (reshape q [a a]) q) :R r})))))
+
+(comment
+  (mp/qr (transpose(matrix [[1 2 3] [3 4 5]])) nil))
 
 
 (extend-protocol mp/PLUDecomposition
