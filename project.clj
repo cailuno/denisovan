@@ -1,4 +1,4 @@
-(defproject denisovan "0.1.0"
+(defproject net.cailuno/denisovan "0.1.1-SNAPSHOT"
   :description "A core.matrix backend for neanderthal."
   :url "http://github.com/cailuno/denisovan"
   :license {:name "Eclipse Public License"
