@@ -519,10 +519,8 @@
 (extend-protocol mp/PCholeskyDecomposition
   Matrix
   (cholesky [m options]
-    (let [lu (:lu (lin/trf m))]
-      (if (= (type lu) uncomplicate.neanderthal.internal.host.buffer_block.RealUploMatrix)
-        lu
-        (throw (ex-info "Matrix does not seem to be positive definite." {:m m}))))))
+    (let [L (core/view-tr (:lu (lin/trf (nat/dsy m))) {:uplo :lower})]
+      {:L L})))
 
 
 (extend-protocol mp/PQRDecomposition
@@ -586,6 +584,8 @@
   (mp/qr (matrix [[1 2 3] [4 5 6]]) nil)
 
   (:P (mp/lu (matrix [[1 2] [3 4]]) nil))
+
+  (mp/cholesky (matrix [[1 2] [3 4]]) nil)
 
 
   (def foo (matrix [[1 0 1] [2 0 0]]))
