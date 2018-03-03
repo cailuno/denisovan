@@ -286,7 +286,7 @@
     (length [a]
       (core/nrm2 a))
     (length-squared [a]
-      (let [l ^double (core/nrm2 a)]
+      (let [l (double (core/nrm2 a))]
         (* l l)))
     (normalise [a]
       (let [l (core/nrm2 a)]
@@ -402,7 +402,7 @@
                              (core/xpy (matrix a) m))))
              (matrix-sub [m a]
                          (if (number? a)
-                           (vm/linear-frac m (double (- a)))
+                           (vm/linear-frac m (- (double a)))
                            (let [[m a] (mp/broadcast-compatible m a)]
                              (core/axpy -1.0 (matrix a) m)))))))
         '[Vector Matrix])))
@@ -520,13 +520,14 @@
           (cons
            sym
            '((norm [m p]
-                   (if (== p 2)
-                     (core/nrm2 m)
-                     (if (== p 1)
-                       (core/nrm1 m)
-                       (if (== p Double/POSITIVE_INFINITY)
-                         (core/nrmi m)
-                         (Math/pow (core/sum (vm/pow m p)) (/ 1 p)))))))))
+                   (let [p (double p)]
+                     (if (== p 2)
+                       (core/nrm2 m)
+                       (if (== p 1)
+                         (core/nrm1 m)
+                         (if (== p Double/POSITIVE_INFINITY)
+                           (core/nrmi m)
+                           (Math/pow (core/sum (vm/pow m p)) (/ 1 p))))))))))
         '[Vector Matrix])))
 
 (extend-protocol mp/PCholeskyDecomposition
