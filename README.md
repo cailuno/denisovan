@@ -4,7 +4,9 @@ This library provides a [core.matrix](https://github.com/mikera/core.matrix)
 implementation for [neanderthal](http://neanderthal.uncomplicate.org/). The main
 focus of this library is to map neanderthal's high performance BLAS routines to
 core.matrix protocols as closely as possible, while being compliant with the
-rest of core.matrix. 
+rest of core.matrix. For documentation please look at the `core.matrix` and
+neanderthal documentation, as this library is mostly glue code. If you encounter
+any issues, including surprising performance behaviour, please open an issue.
 
 Please take a look at neanderthal if you want to improve your performance
 further, as it is exposing the high performance low-level primitives directly in
@@ -27,6 +29,12 @@ You just need to load and activate the implementation as usual.
 
 (clojure.core.matrix/set-current-implementation :neanderthal)
 ~~~
+
+## Roadmap
+
+### 0.2.0
+- support GPU and OpenCL backend
+- add any additional protocols that are important for performance
 
 ## License
 
