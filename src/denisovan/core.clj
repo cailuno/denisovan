@@ -26,7 +26,7 @@
 
 
 (defmacro error
-  "Throws an error with the provided message(s). This is a macro in order to try and ensure the 
+  "Throws an error with the provided message(s). This is a macro in order to try and ensure the
    stack trace reports the error at the correct source line number."
   ([& messages]
     `(throw (Exception. (str ~@messages)))))
@@ -51,13 +51,13 @@
 (defn vector-coerce*
   "Coerces any numerical array to an Vector instance.
    May broadcast to the shape of an optional target if necessary.
-   Does *not* guarantee a new copy - may return same data." 
+   Does *not* guarantee a new copy - may return same data."
   (^Vector [^Vector target m]
 	  (cond (instance? Vector m) m
-      (== 0 (long (mp/dimensionality m))) 
+      (== 0 (long (mp/dimensionality m)))
       (let [res (p/create-vector mkl/mkl-double (ecount target) false)]
         (core/transfer! (repeat (ecount target) (double-coerce m)) res))
-      :else (do 
+      :else (do
               (when (not= (ecount target) (ecount m))
                 (error "Incompatible shapes coercing to vector of target length: " (ecount target)))
               (vector-coerce* m))))
@@ -67,22 +67,22 @@
       (== (dimensionality m) 1)
       (let [res (p/create-vector mkl/mkl-double (ecount m) false)]
         (core/transfer! (to-nested-vectors m) res))
-      :else (error "Can't coerce to Vector with shape: " (mp/get-shape m))))) 
+      :else (error "Can't coerce to Vector with shape: " (mp/get-shape m)))))
 
-(defmacro vector-coerce 
+(defmacro vector-coerce
   "Coerces an argument x to an Vector instance, of the same size as m"
   ([m x]
     `(tag-symbol uncomplicate.neanderthal.protocols.Vector
-                 (let [x# ~x] 
+                 (let [x# ~x]
                    (if (instance? Vector x#) x# (vector-coerce* ~m x#)))))
   ([x]
     `(tag-symbol uncomplicate.neanderthal.protocols.Vector
-                 (let [x# ~x] 
+                 (let [x# ~x]
                    (if (instance? Vector x#) x# (vector-coerce* x#))))))
 
 (eval
   `(extend-protocol mp/PImplementation
-     ~@(mapcat 
+     ~@(mapcat
          (fn [sym]
            (cons sym
              '((implementation-key [m] :neanderthal)
@@ -93,7 +93,7 @@
                                                          (long columns)
                                                          true
                                                          true))
-                (new-matrix-nd [m shape] 
+                (new-matrix-nd [m shape]
                                (case (count shape)
                                  0 0.0
                                  1 (p/create-vector mkl/mkl-double (long (first shape)) 1.0)
@@ -104,12 +104,12 @@
                                                 true)
                                  (let [d0 (first shape)
                                        moredims (next shape)]
-                                   (mapv 
+                                   (mapv
                                      (fn [ds] (mp/new-matrix-nd m ds))
                                      (range d0)))))
                 (construct-matrix [m data]
                                   (let [dims (long (mp/dimensionality data))]
-                                    (cond 
+                                    (cond
                                       (neanderthal? data) (core/copy data)
                                       (mp/is-scalar? data) (double-coerce data)
                                       (== 1 dims) (let [res (p/create-vector mkl/mkl-double (ecount data) false)]
@@ -123,9 +123,9 @@
                                                                          ;; elements in column-major order
                                                                          true
                                                                          false)]
-                                                    (core/transfer! (mp/element-seq (transpose data)) res)) 
+                                                    (core/transfer! (mp/element-seq (transpose data)) res))
                                     :default
-                                      (let [vm (mp/construct-matrix [] data)] 
+                                      (let [vm (mp/construct-matrix [] data)]
                                         ;; (println m vm (shape vm))
                                          (assign! (mp/new-matrix-nd m (shape vm)) vm))))))))
          '[Vector Matrix]) ))
@@ -158,7 +158,7 @@
       [(long (.mrows m)) (long (.ncols m))])
     (dimension-count [m x]
       (let [x (long x)]
-        (cond 
+        (cond
           (== x 0) (.mrows m)
           (== x 1) (.ncols m)
           :else (error "Matrix does not have dimension: " x)))))
@@ -168,7 +168,7 @@
 	  (to-object-array [m]
 	    (let [ec (.dim m)
 	          ^objects obs (object-array ec)]
-	      (dotimes [i ec] (aset obs i (.boxedEntry m i))) 
+	      (dotimes [i ec] (aset obs i (.boxedEntry m i)))
 	      obs))
 	  (as-object-array [m]
 	    nil)
@@ -177,8 +177,8 @@
 	    (let [rows (.mrows m)
 	          cols (.ncols m)
             ^objects obs (object-array (* rows cols))]
-	      (dotimes [i rows] 
-          (dotimes [j cols] (aset obs (+ j (* cols i)) (.boxedEntry m i j)))) 
+	      (dotimes [i rows]
+          (dotimes [j cols] (aset obs (+ j (* cols i)) (.boxedEntry m i j))))
 	      obs))
 	  (as-object-array [m]
 	    nil))
@@ -208,7 +208,7 @@
     (set-nd! [m indexes v]
       (if (== 1 (count indexes))
         (.set ^RealChangeable m (long (first indexes)) (double-coerce v))
-        (error "Can't do " (count indexes) "-dimensional set on a 1D vector!"))) 
+        (error "Can't do " (count indexes) "-dimensional set on a 1D vector!")))
   Matrix
     (set-1d! [m i v] (error "Can't do 1-dimensional set on a 2D matrix!"))
     (set-2d! [m i j v] (.set ^RealChangeable m (long i) (long j) (double-coerce v)))
@@ -222,24 +222,24 @@
     (subvector [m start length]
       (let [k (long start)
             l (long length)]
-        (.subvector m k l)))) 
+        (.subvector m k l))))
 
 (extend-protocol mp/PSliceView
   Matrix
-    (get-major-slice-view [m i] 
+    (get-major-slice-view [m i]
       (.row m (long i))))
 
 (extend-protocol mp/PSliceView2
   Matrix
     (get-slice-view [m dim i]
-      (case (long dim) 
+      (case (long dim)
         0 (.row m (long i))
         1 (.col m (long i))
         (error "Can't slice on dimension " dim " of a Matrix"))))
 
 (extend-protocol mp/PSliceSeq
-  Matrix  
-    (get-major-slice-seq [m] 
+  Matrix
+    (get-major-slice-seq [m]
       (mapv (fn [i] (.row m (long i)))
             (range (.mrows m)))))
 
@@ -257,7 +257,7 @@
 
 (extend-protocol mp/PTranspose
   Vector (transpose [m] m)
-  Matrix (transpose [m] (.transpose m))) 
+  Matrix (transpose [m] (.transpose m)))
 
 (extend-protocol mp/PMatrixCloning
   Vector (clone [m] (core/copy m))
@@ -402,7 +402,7 @@
                              (core/xpy (matrix a) m))))
              (matrix-sub [m a]
                          (if (number? a)
-                           (vm/linear-frac m (- a))
+                           (vm/linear-frac m (double (- a)))
                            (let [[m a] (mp/broadcast-compatible m a)]
                              (core/axpy -1.0 (matrix a) m)))))))
         '[Vector Matrix])))
@@ -547,7 +547,7 @@
                                   1 2 3]
                                {:layout :row :uplo :lower}))))
 
-  (mp/cholesky (matrix [[1 2] [3 4]]) #_(nat/dsy 3 [1
+  (mp/cholesky (matrix [[1 2] [2 1]]) #_(nat/dsy 3 [1
                                                   1 0
                                                   1 2 3]
                                                {:layout :row :uplo :lower}) nil))
@@ -555,8 +555,11 @@
 (extend-protocol mp/PQRDecomposition
   Matrix
   (qr [m options]
-    (let [qr (lin/qrf m)
+    (let [_ (prn "M" m)
+          qr (lin/qrf m)
+          _ (prn "QR" qr)
           q (lin/org qr)
+          _ (prn "Q" q)
           r (core/view-tr (:or qr) {:uplo :upper})]
       {:Q q :R r})))
 
@@ -577,11 +580,11 @@
       {:U u :S sigma :V* vt})))
 
 (comment
-  (mp/qr (matrix [[1 2] [3 4]]) nil)
+  (mp/qr (matrix [[1 2 3] [4 5 6]]) nil)
 
   (mp/svd (matrix [[1 2] [3 4]]) nil)
 
-  (:P (mp/lu (matrix [[1 2] [3 4]]) nil)) 
+  (:P (mp/lu (matrix [[1 2] [3 4]]) nil))
 
 
   (mp/lu (transpose (matrix [[1 0 1] [1 -1 1] [3 1 4]])) nil)
@@ -592,9 +595,11 @@
   (core/mm (lin/org qr)
            (core/view-tr (:or qr) {:uplo :upper}))
 
-  (def foo (matrix [[1 0] [1 2] [0 0]]))
-  (def id (identity-matrix 2))
-  (def qr (lin/qrf foo))
+  (def foo (matrix [[1 0 1] [2 0 0]]))
+  (def bar (nat/dge 2 3 [1 0 1
+                         2 0 0]))
+  (def qr (lin/qrf bar))
+  (lin/org qr)
   (core/view-tr (:or qr) {:uplo :upper})
   (core/mm (:or qr)
            (matrix [[1 0] [0 1]])
@@ -750,12 +755,12 @@
 
 
 
-  (let [test-mtx (matrix [1 2 3]) 
+  (let [test-mtx (matrix [1 2 3])
         I (identity-matrix 3)]
     (equals test-mtx (mmul I test-mtx))
     )
 
-  
+
 
   (let [m (matrix [[1 2 3]
                    [2 3 4]])]
@@ -784,9 +789,25 @@
 
   (mmul (matrix [[1 0] [0 1]]) (matrix [1 0]) )
 
-  
+
 
   (exp (matrix [1 2 3])))
 
 
 
+
+
+;; GP experiment
+
+;; Rasmussen Algorithm 2.1
+
+(comment
+  (diagonal-matrix [1 2 3])
+
+  (lin/sv)
+
+  (require '[plotly-clj.core :as plt])
+
+  (plt/offline-init)
+
+  (plt/save-html (plt/plotly (range 10) (map square (range 10))) "/tmp/plot.html" true))
