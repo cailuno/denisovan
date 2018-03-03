@@ -22,6 +22,10 @@ questions and feel free to open issues!
 
 ## Usage
 
+Include this in your dependencies:
+
+[![Clojars Project](https://img.shields.io/clojars/v/denisovan.svg)](https://clojars.org/denisovan)
+
 You just need to load and activate the implementation as usual.
 
 ~~~clojure
