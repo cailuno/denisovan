@@ -1,4 +1,4 @@
-(defproject net.cailuno/denisovan "0.1.1-SNAPSHOT"
+(defproject net.cailuno/denisovan "0.1.1"
   :description "A core.matrix backend for neanderthal."
   :url "http://github.com/cailuno/denisovan"
   :license {:name "Eclipse Public License"
@@ -6,7 +6,8 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [uncomplicate/neanderthal "0.18.0"]
                  [net.mikera/core.matrix "0.62.0"]
-                 [uncomplicate/fluokitten "0.6.1"]]
+                 [uncomplicate/fluokitten "0.6.1"]
+                 [net.mikera/vectorz-clj "0.47.0" :exclusions [net.mikera/core.matrix]]]
 
   :profiles {:dev {:global-vars {*warn-on-reflection* true
                                  *assert* false
